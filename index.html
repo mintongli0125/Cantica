@@ -89,6 +89,7 @@
       background: #f0f0f0;
     }
 
+    /* Inputs should size to their content; highlights will now match the word length */
     .english-word {
       font-size: 18px;
       padding: 6px 10px;
@@ -99,7 +100,11 @@
       cursor: text;
       transition: all 0.2s ease;
       font-weight: 500;
-      flex: 0 1 auto;
+      /* Prevent stretching to fill space; they will get widths set in JS */
+      flex: 0 0 auto;
+      min-width: 2.5ch;
+      width: auto;
+      box-sizing: content-box;
     }
 
     .english-word:hover {
@@ -372,6 +377,17 @@
         .forEach((el) => el.classList.remove("highlighted"));
     }
 
+    // Set input width based on its current value length (uses 'ch' unit)
+    function setInputWidth(input) {
+      try {
+        // Ensure at least 2 characters visible and add 1ch padding for caret/comfort
+        const len = Math.max(2, input.value?.length || 0);
+        input.style.width = `${len + 1}ch`;
+      } catch (err) {
+        // fallback - do nothing
+      }
+    }
+
     async function renderInterlinear() {
       const greekCol = document.getElementById("greek-col");
       const englishCol = document.getElementById("english-col");
@@ -417,6 +433,9 @@
         const editedText = await getEditedText(i);
         englishInput.value = editedText || englishWordsFlat[i];
 
+        // Size the input to fit the word length
+        setInputWidth(englishInput);
+
         // Find which Greek word(s) map to this English word
         const mappedGreekAlignment = data
           .filter(gw => gw.alignment.includes(i))
@@ -432,6 +451,8 @@
         englishInput.addEventListener("blur", unhighlightAll);
 
         englishInput.addEventListener("input", async (e) => {
+          // Resize as user types so highlight matches current text length
+          setInputWidth(e.target);
           await saveEdit(i, e.target.value);
         });
 
