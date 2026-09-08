@@ -102,7 +102,7 @@
       font-weight: 500;
       /* Prevent stretching to fill space; they will get widths set in JS */
       flex: 0 0 auto;
-      min-width: 2.5ch;
+      min-width: 1ch;
       width: auto;
       box-sizing: content-box;
     }
@@ -382,7 +382,7 @@
       try {
         // Ensure at least 2 characters visible and add 1ch padding for caret/comfort
         const len = Math.max(2, input.value?.length || 0);
-        input.style.width = `${len + 1}ch`;
+        input.style.width = `${len}ch`;
       } catch (err) {
         // fallback - do nothing
       }
