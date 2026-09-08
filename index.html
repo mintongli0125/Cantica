@@ -54,7 +54,7 @@
     .column {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 10px;
     }
 
     .column-title {
@@ -63,32 +63,43 @@
       font-size: 16px;
       text-transform: uppercase;
       letter-spacing: 1px;
+      margin-bottom: 10px;
     }
 
-    .word-pair {
+    .line {
       display: flex;
-      gap: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
       align-items: center;
+      line-height: 1.8;
     }
 
     .greek-word {
       font-size: 20px;
       font-weight: 500;
       color: #333;
-      min-width: 60px;
+      cursor: default;
+      position: relative;
+      padding: 4px 6px;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .greek-word:hover {
+      background: #f0f0f0;
     }
 
     .english-word {
-      flex: 1;
       font-size: 18px;
-      padding: 8px 12px;
+      padding: 6px 10px;
       border: 2px solid transparent;
       border-radius: 6px;
       background: #f8f9fa;
       color: #333;
-      cursor: pointer;
+      cursor: text;
       transition: all 0.2s ease;
       font-weight: 500;
+      flex: 0 1 auto;
     }
 
     .english-word:hover {
@@ -103,29 +114,25 @@
       box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
-    .english-word.editing {
+    .greek-word.highlighted {
       background: #fff4e6;
-      border-color: #ffa500;
-    }
-
-    .word-pair.highlighted .greek-word {
-      background: #fff4e6;
-      border-radius: 4px;
-      padding: 4px 8px;
       color: #ff8c00;
       font-weight: 600;
     }
 
-    .word-pair.highlighted .english-word {
+    .english-word.highlighted {
       background: #fff4e6;
       border-color: #ff8c00;
       color: #ff8c00;
     }
 
     .strong-ref {
-      font-size: 12px;
+      font-size: 11px;
       color: #999;
-      margin-left: 4px;
+      position: absolute;
+      top: -8px;
+      right: 2px;
+      white-space: nowrap;
     }
 
     .actions {
@@ -222,7 +229,6 @@
   </div>
 
   <script>
-    // Data: Greek words mapped to English with Strong's numbers
     let data = [];
     let englishWordsFlat = [];
     
@@ -340,30 +346,29 @@
       }, 2000);
     }
 
-    function highlightWordPair(englishIndex) {
-      // Find which Greek word(s) contain this English word
+    function highlightGroup(alignmentIndices) {
+      // Highlight all Greek and English words in this alignment group
       data.forEach((greekWord) => {
-        const isHighlighted = greekWord.alignment.includes(englishIndex);
         const greekEl = document.querySelector(
           `.greek-col-word[data-greek-id="${greekWord.id}"]`
         );
-        const englishEl = document.querySelector(
-          `.english-col-word[data-english-index="${englishIndex}"]`
-        );
-
-        if (isHighlighted) {
-          greekEl?.parentElement.classList.add("highlighted");
-          englishEl?.parentElement.classList.add("highlighted");
+        if (alignmentIndices.some(idx => greekWord.alignment.includes(idx))) {
+          greekEl?.classList.add("highlighted");
         } else {
-          greekEl?.parentElement.classList.remove("highlighted");
-          englishEl?.parentElement.classList.remove("highlighted");
+          greekEl?.classList.remove("highlighted");
         }
+      });
+
+      alignmentIndices.forEach((idx) => {
+        const englishEl = document.querySelector(
+          `.english-col-word[data-english-index="${idx}"]`
+        );
+        englishEl?.classList.add("highlighted");
       });
     }
 
     function unhighlightAll() {
-      document
-        .querySelectorAll(".word-pair.highlighted")
+      document.querySelectorAll(".greek-word.highlighted, .english-word.highlighted")
         .forEach((el) => el.classList.remove("highlighted"));
     }
 
@@ -374,11 +379,11 @@
       greekCol.innerHTML = "";
       englishCol.innerHTML = "";
 
-      // Render Greek column
-      data.forEach((item) => {
-        const wordPair = document.createElement("div");
-        wordPair.className = "word-pair";
+      // Render Greek column - all in one line
+      const greekLine = document.createElement("div");
+      greekLine.className = "line";
 
+      data.forEach((item) => {
         const greekWord = document.createElement("span");
         greekWord.className = "greek-word greek-col-word";
         greekWord.dataset.greekId = item.id;
@@ -386,24 +391,23 @@
 
         const strongRef = document.createElement("span");
         strongRef.className = "strong-ref";
-        strongRef.textContent = `(${item.strongs})`;
-
+        strongRef.textContent = `${item.strongs}`;
         greekWord.appendChild(strongRef);
 
         greekWord.addEventListener("mouseenter", () =>
-          highlightWordPair(item.alignment[0])
+          highlightGroup(item.alignment)
         );
         greekWord.addEventListener("mouseleave", unhighlightAll);
 
-        wordPair.appendChild(greekWord);
-        greekCol.appendChild(wordPair);
+        greekLine.appendChild(greekWord);
       });
+      greekCol.appendChild(greekLine);
 
-      // Render English column
+      // Render English column - all in one line
+      const englishLine = document.createElement("div");
+      englishLine.className = "line";
+
       for (let i = 0; i < englishWordsFlat.length; i++) {
-        const wordPair = document.createElement("div");
-        wordPair.className = "word-pair";
-
         const englishInput = document.createElement("input");
         englishInput.type = "text";
         englishInput.className = "english-word english-col-word";
@@ -413,28 +417,36 @@
         const editedText = await getEditedText(i);
         englishInput.value = editedText || englishWordsFlat[i];
 
-        englishInput.addEventListener("mouseenter", () => highlightWordPair(i));
+        // Find which Greek word(s) map to this English word
+        const mappedGreekAlignment = data
+          .filter(gw => gw.alignment.includes(i))
+          .flatMap(gw => gw.alignment);
+
+        englishInput.addEventListener("mouseenter", () =>
+          highlightGroup([i, ...mappedGreekAlignment])
+        );
         englishInput.addEventListener("mouseleave", unhighlightAll);
-        englishInput.addEventListener("focus", () => highlightWordPair(i));
+        englishInput.addEventListener("focus", () =>
+          highlightGroup([i, ...mappedGreekAlignment])
+        );
         englishInput.addEventListener("blur", unhighlightAll);
 
         englishInput.addEventListener("input", async (e) => {
           await saveEdit(i, e.target.value);
         });
 
-        wordPair.appendChild(englishInput);
-        englishCol.appendChild(wordPair);
+        englishLine.appendChild(englishInput);
       }
+      englishCol.appendChild(englishLine);
     }
 
     async function exportEdits() {
       const edits = await getAllEdits();
       
-      // Build Greek text from data
       const greekText = data.map(w => w.greek).join(" ");
       
       const exportData = {
-        verse: "John 1:1",  // You can hardcode or pass this in the JSON too
+        verse: "John 1:1",
         greekText: greekText,
         exportedAt: new Date().toISOString(),
         edits: edits.map((e) => ({
@@ -469,7 +481,6 @@
     (async () => {
       await initDB();
       await loadData();
-      await renderInterlinear();
     })();
   </script>
 </body>
